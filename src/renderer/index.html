@@ -1,22 +1,31 @@
 <!doctype html>
 <html>
-  <head>
-    <meta name="referrer" content="no-referrer" />
-    <meta charset="UTF-8" />
-    <title>Global Book</title>
-    <!-- https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP -->
-    <meta
-      http-equiv="Content-Security-Policy"
-      content="default-src *;
+
+<head>
+  <meta name="referrer" content="no-referrer" />
+  <meta charset="UTF-8" />
+  <title>Global Book</title>
+  <!-- https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP -->
+  <meta http-equiv="Content-Security-Policy" content="default-src *;
     img-src * 'self' data: https:; script-src 'self' 'unsafe-inline' 'unsafe-eval' *;
-    style-src  'self' 'unsafe-inline' *;media-src 'self' data: blob: *"
-      ;
-    />
-  </head>
+    style-src  'self' 'unsafe-inline' *;media-src 'self' data: blob: *" ; />
+</head>
 
 
-  <body style="border-radius: 10px;">
-    <div id="app"></div>
-    <script type="module" src="/src/main.ts"></script>
-  </body>
+<body style="border-radius: 10px;">
+  <div id="app"></div>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+<style>
+  .n-drawer-mask {
+    border-radius: 10px !important;
+  }
+  .n-modal-mask {
+    border-radius: 10px !important;
+  }
+  .n-drawer.n-drawer--right-placement {
+    border-radius: 10px !important;
+  }
+</style>
+
 </html>

@@ -15,7 +15,7 @@ const router = useRouter()
 
 const intervalId = setInterval(() => {
   if (percentageRef.value < 100) {
-    percentageRef.value += 0.67; // 每100毫秒增加0.67%
+    percentageRef.value += 1; // 每100毫秒增加0.67%
   } else {
     isDisplay.value = true
     clearInterval(intervalId)
@@ -27,7 +27,7 @@ const intervalId = setInterval(() => {
 
 <template>
   <div class="Load_layout">
-    <div class="circle"></div>
+
     <div
       style="
         text-align: center;
@@ -53,9 +53,9 @@ const intervalId = setInterval(() => {
       </div>
       <n-progress type="line" :percentage="percentageRef" :show-indicator="false" processing />
       <div class="animate__animated animate__jello" v-show="isDisplay">加载完成</div>
-      <video autoplay>
+      <!-- <video autoplay>
         <source src="../assets/loadMusic.mp3" type="audio/mpeg">
-      </video>
+      </video> -->
 
     </div>
   </div>
@@ -99,7 +99,7 @@ video {
 .Load_layout {
   background-color: #222222;
   height: 100%;
-  background-image: url("../assets/laod6.png");
+  background-image: url("../assets/laodx1.png");
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
