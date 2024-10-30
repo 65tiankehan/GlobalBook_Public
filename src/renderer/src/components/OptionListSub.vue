@@ -9,7 +9,8 @@ interface book {
   author?: string,
   url?: string,
   LastUpdateTime?: string,
-  typesOf?: string
+  typesOf?: string,
+  favorites?: boolean
 }
 
 // 初始化Vuex store实例

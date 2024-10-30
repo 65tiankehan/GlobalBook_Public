@@ -34,8 +34,11 @@ interface book {
   author?: string,
   url?: string,
   LastUpdateTime?: string,
-  typesOf?: string
+  typesOf?: string,
+  favorites?: boolean;
 }
+
+
 
 const dbManager = new IndexedDBManager()
 // 初始化Vuex store实例
@@ -47,6 +50,10 @@ const message = useMessage()
 const skin = computed(() => store.getters.getSkin)
 // 计算属性，获取数据源
 const source = computed(() => store.getters.getSource)
+
+
+
+
 
 // 设置推荐书籍列表
 const setRecommendedBookList = (url: string) => {
@@ -137,11 +144,68 @@ const NeworldscroE2 = ref<HTMLElement | null>(null)
 // 书籍数组引用
 const books = ref<book[]>([])
 
+
+const FavoritesList = ref<book[]>([])
+
+//往收藏，插入一个值
+async function setFavorite(index: number) {
+  let history = await dbManager.get('favorites')
+  const arrx: book[] = history?.inventory || []
+
+  // 如果`favorites`不存在，则创建一个新的`favorites`对象
+  if (!history) {
+    history = { id: 'favorites', inventory: arrx }
+    await dbManager.add(history)
+  } else {
+    // 如果`favorites`已存在，则直接修改`inventory`
+    const itemToAdd = books.value[index]
+    const exists = arrx.some(item => item.name === itemToAdd.name)
+
+    if (!exists) {
+      books.value[index].favorites = true
+      arrx.unshift(itemToAdd)
+      history.inventory = arrx
+    }
+  }
+  // 更新`favorites`对象
+  await dbManager.update(history.id, history)
+
+}
+
+//从收藏中删除一个值
+async function removeFavorite(index: number) {
+  const history = await dbManager.get('favorites')
+  const arrx: book[] = history?.inventory || []
+  const itemToAdd = books.value[index]
+  const exists = arrx.some(item => item.name === itemToAdd.name)
+  if (exists) {
+    const indexToRemove = arrx.findIndex(item => item.name === itemToAdd.name)
+    arrx.splice(indexToRemove, 1)
+    // 更新 `journalismList` 中的收藏状态
+    books.value[index].favorites = false
+  }
+  // 更新`favorites`对象
+  await dbManager.update(history.id, history)
+}
+
+//设置收藏列表（）
+async function setFavoritesList() {
+  const history = await dbManager.get('favorites')
+
+  FavoritesList.value = history?.inventory || []
+}
+
+
+const isFavorites = (name: string) => {
+  return FavoritesList.value.some(item => item.name === name)
+}
+
+
 //查询DB，书架列表
 const getbookshelf = async () => {
-  const bookshelfs = await dbManager.get('bookshelf')
-   books.value = [];
-   books.value = bookshelfs?.bookshelf || [];
+  const history = await dbManager.get('favorites')
+
+  books.value = history?.inventory || []
 }
 // 更新面板内容
 async function updateTabPane(value: string | number) {
@@ -177,7 +241,7 @@ async function updateTabPane(value: string | number) {
             name: $($(item).children("span.s2")).children('a').attr("title"),
             chapter: $($(item).children("span.s3")).children('a').attr("title"),
             LatestChapterUrl: $($(item).children("span.s3")).children('a').attr("href"),
-            url:  $($(item).children("span.s2")).children('a').attr("href"),
+            url: $($(item).children("span.s2")).children('a').attr("href"),
             author: $(item).children("span.s4").text(),
             LastUpdateTime: $(item).children("span.s5").text(),
             typesOf: $(item).children("span.s1").text().replace(/\[|\]/g, '')
@@ -203,8 +267,7 @@ async function updateTabPane(value: string | number) {
 const showDetails = (url: string | undefined) => {
 
   if (url) {
-    console.log('url is not null')
-    console.log(url);
+
     // 获取当前时间的时间戳
     const timestamp = Date.now()
     setBookDetailsLoading(url + '${' + `${timestamp}`)
@@ -213,6 +276,10 @@ const showDetails = (url: string | undefined) => {
   }
 
 }
+
+
+// 每10秒检查一次(收藏)
+setInterval(setFavoritesList, 10000)
 // 在组件挂载前调用
 onBeforeMount(() => {
   updateTabPane(tabPanes[0].name)
@@ -276,9 +343,22 @@ onBeforeMount(() => {
         <div class="animate__animated animate__flipInX homeCardDeep" v-for="(item, index) in books" :key="index">
           <div class="homeTitleCarImg" style="position: relative">
 
-            <img class="homeTitleCarImgI" src="../assets/paper-1074131_1280.jpg" />
+            <img class="homeTitleCarImgI" src="../assets/laodx1.png" />
             <div style="position: absolute; z-index: 3; top: 5px; right: 8px">
               <!--      每个的右上角           -->
+              <n-popover trigger="hover" placement="bottom">
+                <template #trigger>
+                  <div v-if="isFavorites(item.name ?? '') || item.favorites" @click=" removeFavorite(index)">
+                    <svg t="1730285151392" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="6176" width="25" height="35"><path d="M794.112 632v-2.752a64 64 0 1 1 127.936 2.752V864a107.648 107.648 0 0 1-174.912 84.096L512 832l-185.984 112a128 128 0 0 1-208-99.968V192a128 128 0 0 1 128-128h548.032a128 128 0 0 1 128 128v96h-1.28a64 64 0 0 1-125.44 0h-1.28V192H246.016v652.032a128 128 0 0 1 21.888-14.08l186.048-112a128 128 0 0 1 120.192 2.112l219.904 107.648V632z m15.168 204.16a128 128 0 0 1 15.68 10.24 21.824 21.824 0 0 0-10.56-2.752 20.352 20.352 0 0 0-20.352 20.352v-36.288l15.232 8.448z m17.856 11.968z m-17.856-11.968l-15.232-8.448v36.288a20.352 20.352 0 0 1 31.936-16.768 128 128 0 0 0-16.64-11.072z m16.64 11.072l-1.024-0.64a20.352 20.352 0 0 1 1.088 0.64zM576 384h256a64 64 0 0 1 0 128H576a64 64 0 1 1 0-128z" fill="#457CFC" p-id="6177"></path></svg>
+                  </div>
+                  <div v-else @click="setFavorite(index)">
+                    <svg t="1730285327290" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="7458" width="25" height="35"><path d="M823.04 44.032H196.864c-56.576 0-102.4 45.824-102.4 102.4v766.976c0 30.976 18.688 58.368 47.616 69.888 28.416 11.264 60.416 4.352 81.664-17.664l260.864-240.896 1.536-1.536c6.144-6.4 14.336-9.984 23.04-9.984 8.704 0 16.896 3.584 23.04 9.984l1.536 1.536 262.656 241.664c14.336 14.848 33.792 22.784 53.76 22.784 9.216 0 18.688-1.792 27.904-5.376 28.928-11.52 47.36-38.912 47.36-69.888V146.432c0-56.576-45.824-102.4-102.4-102.4z m-158.208 376.064h-121.856v115.968c0 16.896-13.824 30.72-30.72 30.72s-30.72-13.824-30.72-30.72v-115.968h-119.808c-16.896 0-30.72-13.824-30.72-30.72s13.824-30.72 30.72-30.72h119.808V232.96c0-16.896 13.824-30.72 30.72-30.72s30.72 13.824 30.72 30.72v125.696h121.856c16.896 0 30.72 13.824 30.72 30.72s-13.824 30.72-30.72 30.72z" fill="#5396FF" p-id="7459"></path></svg>
+                  </div>
+                </template>
+                <span v-if="isFavorites(item.name ?? '') || item.favorites">移除书籍</span>
+                <span v-else>订阅书籍</span>
+              </n-popover>
+
             </div>
             <div class="play_video" style="
               position: absolute;
@@ -287,7 +367,7 @@ onBeforeMount(() => {
               transform: translate(-50%, -50%);
               z-index: 3;
             ">
-              <n-button text style="font-size: 24px"  @click="showDetails(item.url)">
+              <n-button text style="font-size: 24px" @click="showDetails(item.url)">
                 <svg t="1723897577159" class="icon" viewBox="0 0 1024 1024" version="1.1"
                   xmlns="http://www.w3.org/2000/svg" p-id="1676" width="24" height="24">
                   <path
@@ -551,7 +631,7 @@ onBeforeMount(() => {
 }
 
 .homeTitleCarText {
-  padding-top: 5%;
+  /* padding-top: 5%; */
   width: 100%;
   height: 40%;
   border-radius: 3.5px;

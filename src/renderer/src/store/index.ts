@@ -8,6 +8,7 @@ interface pageStatus {
 export default createStore({
     state() {
         return {
+            readerStatus:false,
             protocol18: false,
             skin: 'darkTheme',
             source: 'https://www.quanben.so/',
@@ -18,6 +19,9 @@ export default createStore({
         }
     },
     getters: {
+        getReaderStatus: (state) => {
+            return state.readerStatus
+        },
         getProtocol18: (state) => {
             return state.protocol18
         },
@@ -42,6 +46,9 @@ export default createStore({
         }
     },
     mutations: {
+        SET_READERSTATUS: (state, payload) => {
+            state.readerStatus = payload
+        },
         SET_PROTOCOL18: (state, payload) => {
             state.protocol18 = payload
         },

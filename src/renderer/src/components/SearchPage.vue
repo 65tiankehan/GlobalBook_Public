@@ -1,100 +1,138 @@
 <script setup lang="ts">
-import { ref, watch, computed } from 'vue'
-// 导入Axios库用于发起HTTP请求
-import axios from 'axios'
-// 导入Cheerio库用于解析HTML
-import * as cheerio from 'cheerio'
-// 导入Vuex的store工具
-import { useStore } from 'vuex'
-// 导入Naive UI的消息提示组件
-import { useMessage } from 'naive-ui'
-// 定义书籍接口
+import { ref, watch } from 'vue';//computed
+import axios from 'axios';
+import * as cheerio from 'cheerio';
+// import { useStore } from 'vuex';
+import { useMessage } from 'naive-ui';
+import IndexedDBManager from '../indexedDB.js'
+
 interface book {
-  name?: string,
-  chapter?: string,
-  LatestChapterUrl?: string,
-  author?: string,
-  url?: string,
-  LastUpdateTime?: string,
-  typesOf?: string
+  name?: string;
+  chapter?: string;
+  LatestChapterUrl?: string;
+  author?: string;
+  url?: string;
+  LastUpdateTime?: string;
+  typesOf?: string;
+  favorites?: boolean;
 }
-// 初始化消息提示组件
-const message = useMessage()
-// 初始化Vuex store实例
-const store = useStore()
-// 书籍数组引用
-const books = ref<book[]>([])
+
+const dbManager = new IndexedDBManager()
+const message = useMessage();
+// const store = useStore();
+const booksTs = ref<book[]>([]);
+const FavoritesList = ref<book[]>([])
+const NeworldscroE3 = ref<HTMLElement | null>(null);
+
+// const source = computed(() => store.getters.getSource);
+
+//往收藏，插入一个值
+async function setFavorite(index: number) {
+  let history = await dbManager.get('favorites')
+  const arrx: book[] = history?.inventory || []
+
+  // 如果`favorites`不存在，则创建一个新的`favorites`对象
+  if (!history) {
+    history = { id: 'favorites', inventory: arrx }
+    await dbManager.add(history)
+  } else {
+    // 如果`favorites`已存在，则直接修改`inventory`
+    const itemToAdd = booksTs.value[index]
+    const exists = arrx.some(item => item.name === itemToAdd.name)
+
+    if (!exists) {
+      booksTs.value[index].favorites = true
+      arrx.unshift(itemToAdd)
+      history.inventory = arrx
+    }
+  }
+  // 更新`favorites`对象
+  await dbManager.update(history.id, history)
+
+}
+
+//从收藏中删除一个值
+async function removeFavorite(index: number) {
+  const history = await dbManager.get('favorites')
+  const arrx: book[] = history?.inventory || []
+  const itemToAdd = booksTs.value[index]
+  const exists = arrx.some(item => item.name === itemToAdd.name)
+  if (exists) {
+    const indexToRemove = arrx.findIndex(item => item.name === itemToAdd.name)
+    arrx.splice(indexToRemove, 1)
+    // 更新 `journalismList` 中的收藏状态
+    booksTs.value[index].favorites = false
+  }
+  // 更新`favorites`对象
+  await dbManager.update(history.id, history)
+}
+
+//设置收藏列表（）
+async function setFavoritesList() {
+  const history = await dbManager.get('favorites')
+
+  FavoritesList.value = history?.inventory || []
+}
+
+
+const isFavorites = (name: string) => {
+  return FavoritesList.value.some(item => item.name === name)
+}
+
 
 const props = defineProps({
-  searchUrl: String
-})
-const NeworldscroE3 = ref<HTMLElement | null>(null)
+  searchUrl: String,
+});
+// 每10秒检查一次(收藏)
+setInterval(setFavoritesList, 10000)
 
-const source = computed(() => store.getters.getSource)
-async function AsynchronousPageFlipping(params: string) {
-  axios.get(source.value.slice(0, source.value.length - 1) + params)
-    .then(res => {
-      ParseHTMLAndFill(cheerio.load(res.data))
-    })
-    .catch(err => {
-      console.log(err)
-    })
-}
 
-const ParseHTMLAndFill = ($: cheerio.CheerioAPI) => {
-  const TemporaryBookshelf: book[] = [];
-  $('div.novelslistss').children('li').each(function (_index, item) {
-    const book: book = {
-      name: $($(item).children("span.s2")).children('a').attr("title"),
-      chapter: $($(item).children("span.s3")).children('a').attr("title"),
-      LatestChapterUrl: $($(item).children("span.s3")).children('a').attr("href"),
-      url: source.value + $($(item).children("span.s2")).children('a').attr("href"),
-      author: $(item).children("span.s4").text(),
-      LastUpdateTime: $(item).children("span.s5").text(),
-      typesOf: $(item).children("span.s1").text().replace(/\[|\]/g, '')
-    };
-    TemporaryBookshelf.push(book);
-    books.value = [...TemporaryBookshelf, ...books.value]
-  })
-}
-
-watch(props, (newVal, oldVal) => {
-  console.log('Favorite changed from', oldVal, 'to', newVal)
-  if (NeworldscroE3.value) {//将页面滚动到顶部
-    NeworldscroE3.value.scrollTop = 0
+watch(() => props.searchUrl, (newVal, oldVal) => {
+  console.log('searchUrl changed from', oldVal, 'to', newVal);
+  if (NeworldscroE3.value) {
+    NeworldscroE3.value.scrollTop = 0;
   }
 
-  console.log(props.searchUrl)
-  //搜索
-  axios.get(props.searchUrl ?? '')
-    .then(res => {
-      books.value = [];
-      const $ = cheerio.load(res.data)
-      message.loading('正在加载...', { duration: 1500 });
-      //得到第一页，主要部分内容
-      ParseHTMLAndFill($);
+  if (newVal) {
+    axios.get(newVal)
+      .then(res => {
+        booksTs.value = [];
+        const $ = cheerio.load(res.data);
+        const TemporaryBookshelf: book[] = [];
+        message.loading('正在加载...', { duration: 1500 });
 
-      //查看是否有分页如果有，封装好地址，调用AsynchronousPageFlipping来处理
-      const lastPage: number = Number($($('div.novelslistss').children('div.pages')).children('a.last').text());
-      const firstPageUrl: string = $($('div.novelslistss').children('div.pages')).children('a.last').attr('href') ?? '';
-      for (let i = 0; i <= lastPage; i++) {
-        AsynchronousPageFlipping(firstPageUrl.slice(0, firstPageUrl.lastIndexOf('page=') + 5) + `${i}`)
-      }
+        $('div.novelslistss').children('li').each((_, item) => {
+          console.log()
+          const book: book = {
+            name: $(item).children("span.s2").text(),
+            chapter: $($(item).children("span.s3")).children('a').text(),
+            LatestChapterUrl: $($(item).children("span.s3")).children('a').attr("href"),
+            url: $($(item).children("span.s2")).children('a').attr("href"),
+            author: $(item).children("span.s4").text(),
+            LastUpdateTime: $(item).children("span.s5").text(),
+            typesOf: $(item).children("span.s1").text().replace(/\[|\]/g, ''),
+          };
+          TemporaryBookshelf.push(book);
+        });
 
-    }).catch(err => {
-      //请求失败
-      console.log(err)
-    })
-
-})
-
+        booksTs.value = [...TemporaryBookshelf, ...booksTs.value];
+        message.success('加载完成', { duration: 1500 });
+        console.log('加载内容', booksTs.value);
+      })
+      .catch(err => {
+        console.error('请求失败:', err);
+        message.error('请求失败，请稍后再试', { duration: 1500 });
+      });
+  }
+}, { immediate: true });
 </script>
 
 <template>
   <div class="searchPage">
-    <div ref="NeworldscroE3" class="NeworldscroE" style="height: 98%;width: 100%;  padding: 10px;">
+    <div ref="NeworldscroE3" class="NeworldscroE" style="height: 98%; width: 100%; padding: 10px;">
       <n-space vertical>
-        <div class="searchOption" v-for="(item, index) in books" :key="index">
+
+        <div class="searchOption" v-for="(item, index) in booksTs" :key="index">
           <div class="searchOption_1">
             <n-breadcrumb>
               <n-breadcrumb-item>
@@ -114,45 +152,39 @@ watch(props, (newVal, oldVal) => {
               <n-breadcrumb-item>
                 {{ item.LastUpdateTime }}
               </n-breadcrumb-item>
-
             </n-breadcrumb>
           </div>
           <div class="searchOption_2">
-            <n-button type="info">
+            <n-button v-if="isFavorites(item.name ?? '') || item.favorites" type="info" @click=" removeFavorite(index)">
+              - 移除书架
+            </n-button>
+            <n-button v-else type="primary" @click="setFavorite(index)">
               + 加入书架
             </n-button>
           </div>
         </div>
-
-
       </n-space>
     </div>
-
   </div>
 </template>
 
 <style scoped>
 .NeworldscroE {
-  /* height: 430px; */
   overflow-y: auto;
 }
 
 .NeworldscroE::-webkit-scrollbar {
-  /*滚动条整体样式*/
   width: 0px;
-  /*高宽分别对应横竖滚动条的尺寸*/
   height: 0px;
 }
 
 .NeworldscroE::-webkit-scrollbar-thumb {
-  /*滚动条里面小方块*/
   border-radius: 0px;
   -webkit-box-shadow: inset 0 0 5px rgba(235, 238, 240, 0.2);
   background: #ebeef0;
 }
 
 .NeworldscroE::-webkit-scrollbar-track {
-  /*滚动条里面轨道*/
   -webkit-box-shadow: inset 0 0 5px rgba(235, 238, 240, 0.2);
   border-radius: 0px;
   background: #f1f6fa;
@@ -182,16 +214,10 @@ watch(props, (newVal, oldVal) => {
   background-color: #25252a;
   border-radius: 5px;
   color: #eaeaea;
-  transition: transform 0.3s,
-    box-shadow 0.3s !important;
+  transition: transform 0.3s, box-shadow 0.3s !important;
 }
 
 .searchOption:hover {
-  /* box-shadow: 0 16px 32px 0 rgba(48, 55, 66, 0.15); */
-
-  /* transition-delay: 0s !important; */
-  /* border: 1px solid #78a4fa; */
-
   transform: translateY(-3px) !important;
   box-shadow: 0 0 10px rgba(255, 255, 255, 0.8);
   animation: sparkle 0.5s infinite;
@@ -205,6 +231,5 @@ watch(props, (newVal, oldVal) => {
   flex-wrap: wrap;
   justify-content: flex-start;
   align-items: center;
-
 }
 </style>

@@ -14,7 +14,13 @@ import IndexedDBManager from '../indexedDB.js'
 // 导入Naive UI的消息提示组件
 import { useMessage } from 'naive-ui'
 
+interface pageStatus {
+  name: string
+}
+
+
 const showModel = ref(false)
+
 const dbManager = new IndexedDBManager()
 const store = useStore()
 const RecommendedBookList = computed(() => store.getters.getRecommendedBookList)
@@ -29,12 +35,18 @@ const SearchContent = computed(() => store.getters.getSearchContent)
 const protocol18 = computed(() => store.getters.getProtocol18)
 
 
+
 // 使用computed属性来访问getter
 const BookDetailsLoading = computed(() => store.getters.getBookDetailsLoading)
 
 const setProtocol18 = (protocol18: boolean) => {
   store.commit('SET_PROTOCOL18', protocol18)
 }
+
+const setPageStatus = (PageStatus: pageStatus[]) => {
+  store.commit('SET_PAGESTATUS', PageStatus)
+}
+
 const SearchLayout = ref('')
 
 
@@ -58,7 +70,8 @@ interface book {
   author?: string,
   url?: string,
   LastUpdateTime?: string,
-  typesOf?: string
+  typesOf?: string,
+  favorites?: boolean
 }
 
 interface EpisodeCollection {
@@ -78,6 +91,8 @@ interface tvDrama {
   Scenario?: string,
   streamingSources?: EpisodeCollection[]
 }
+
+const Reads = ref<EpisodeCollection[]>([])
 
 const RecommendedBook = ref<book[]>([])
 
@@ -156,7 +171,7 @@ watch(RecommendedBookList, (newVal, oldVal) => {
       $($($("#newscontent").children('div.r')).children("ul")).children("li").each(function (_index, item) {
         const book: book = {
           name: $($(item).children("span.s2")).children('a').attr("title"),
-          url:  $($(item).children("span.s2")).children('a').attr("href"),
+          url: $($(item).children("span.s2")).children('a').attr("href"),
           author: $(item).children("span.s5").text(),
           typesOf: $(item).children("span.s1").text().replace(/\[|\]/g, '')
         };
@@ -174,6 +189,7 @@ watch(RecommendedBookList, (newVal, oldVal) => {
 //搜索
 watch(SearchContent, (newVal, oldVal) => {
   console.log('Favorite changed from', oldVal, 'to', newVal)
+
   SearchLayout.value = extractBeforeDollarBrace(newVal)
 })
 
@@ -192,6 +208,7 @@ watch(BookDetailsLoading, (newVal, oldVal) => {
   axios.get(extractBeforeDollarBrace(newVal))
     .then((resp) => {
       const $ = cheerio.load(resp.data);
+
       dramaDetails.value.imgUrl = $("div#fmimg").children("img").attr("src");
       dramaDetails.value.title = $("div#fmimg").children("img").attr("alt");
       //tag
@@ -212,11 +229,15 @@ watch(BookDetailsLoading, (newVal, oldVal) => {
       $($('div#list').children('dl')).children('dd').each(function (_n, m) {
         if (dramaDetails.value.streamingSources) {
           if ($(m).children('a').text()) {
+
+
             const episodeCollection: EpisodeCollection = {
               title: $(m).children('a').text(),
-              url: $(m).children('a').attr('href')
+              url: extractBeforeDollarBrace(newVal) + $(m).children('a').attr('href')
             }
             dramaDetails.value.streamingSources.push(episodeCollection)
+
+
           }
 
         }
@@ -235,11 +256,23 @@ watch(BookDetailsLoading, (newVal, oldVal) => {
 })
 
 
+//点击阅读，展开最新的小说章节
+const expandReading = async (epi: EpisodeCollection[] | undefined) => {
+  if (epi) {
+
+    showModel.value = false;
+    Reads.value = epi;
+    setPageStatus([{ name: 'reader' }])
+  }
+
+
+}
+
+
 //当应用启动后，2秒后，检查用户是否同意过使用协议，如果没同意，则弹出协议，反之不弹窗协议
 const checkprotocol18 = async () => {
   const protocol18 = await dbManager.get('protocol18')
-  console.log('protocol18')
-  console.log(protocol18)
+
 
   // 设置相反的布尔值
   setProtocol18(!protocol18?.protocol18)
@@ -253,9 +286,8 @@ onBeforeMount(() => {
 <template>
   <div class="layout" style="height: 100%; width: 100%">
     <Taskbar />
-    <div style="width: 100%; height: 100%" v-show="true">
-      <div v-show="PageStatus[0].name != 'search'" style="width: 100%; height: 100%">
-
+    <div style="width: 100%; height: 100%" v-show="PageStatus[0].name == 'home'">
+      <div style="width: 100%; height: 100%">
         <div class="right_layout" style="padding-top: 39px">
           <OptionListSub :books="RecommendedBook" />
         </div>
@@ -263,15 +295,17 @@ onBeforeMount(() => {
           <ArticlePage />
         </div>
       </div>
-      <div v-show="PageStatus[0].name == 'search'" style="width: 100%; height: 100%">
-        <div style="padding-top: 39px;width: 100%;height: 100%">
-          <SearchPage :search-url="SearchLayout" />
-        </div>
+
+    </div>
+    <div v-show="PageStatus[0].name == 'searchX'" style="width: 100%; height: 100%">
+      <div style="padding-top: 39px;width: 100%;height: 100%">
+
+        <SearchPage :search-url="SearchLayout" />
       </div>
     </div>
-    <div style="width: 100%; height: 100%" v-show="false">
+    <div style="width: 100%; height: 100%" v-show="PageStatus[0].name == 'reader'">
       <div style="padding-top: 39px; height: 100%; width: 100%">
-        <Reader />
+        <Reader :books="Reads" />
       </div>
     </div>
 
@@ -422,9 +456,12 @@ onBeforeMount(() => {
               {{ dramaDetails.title }}
             </div>
             <n-space>
-              <n-tag v-for="(item, index) in dramaDetails.tags" :key="index" round :type="item.color">
-                {{ item.name }}
-              </n-tag>
+              <n-scrollbar style="max-height: 100px">
+                <n-tag v-for="(item, index) in dramaDetails.tags" :key="index" round :type="item.color">
+                  {{ item.name }}
+                </n-tag>
+              </n-scrollbar>
+
             </n-space>
             <n-scrollbar style="max-height: 100px">
               {{ dramaDetails.Scenario }}
@@ -453,7 +490,7 @@ onBeforeMount(() => {
 
       <template #footer>
         <n-space justify="end">
-          <n-button type="primary">
+          <n-button type="primary" @click="expandReading(dramaDetails.streamingSources)">
             阅读
           </n-button>
         </n-space>
