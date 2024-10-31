@@ -20,6 +20,7 @@ const readerContent = ref('')
 
 const ReaderProp = ref<EpisodeCollection>();
 
+const NeworldscroEX = ref<HTMLElement | null>(null)
 // 初始化消息提示组件
 const message = useMessage()
 
@@ -56,6 +57,9 @@ async function showActive() {
 
 //设置文章
 async function setReaderBook(epi: EpisodeCollection) {
+  if (NeworldscroEX.value) {//将页面滚动到顶部
+    NeworldscroEX.value.scrollTop = 0
+  }
   message.loading('正在加载...', { duration: 1500 });
   axios.get(epi.url ?? '')
     .then((resp) => {
@@ -202,8 +206,8 @@ const setbookFontFamily = async (fonts: string) => {
 
       </n-space>
     </div>
-    <div class="chapterReader NeworldscroE" :style="readerFontFamily + readerFontSize + readerbackgroundcolor"
-      v-html="readerContent">
+    <div ref="NeworldscroEX" class="chapterReader NeworldscroE"
+      :style="readerFontFamily + readerFontSize + readerbackgroundcolor" v-html="readerContent">
 
     </div>
   </div>

@@ -8,17 +8,25 @@ interface pageStatus {
 export default createStore({
     state() {
         return {
-            readerStatus:false,
+            readerStatus: false,
             protocol18: false,
             skin: 'darkTheme',
             source: 'https://www.quanben.so/',
             RecommendedBookList: '',
             PageStatus: [{ name: 'home' }] as pageStatus[],
             SearchContent: '',
-            BookDetailsLoading: ''
+            BookDetailsLoading: '',
+            showUpdate: false,//更新窗口
+            versionDescriptions: [],//版本更新内容
         }
     },
     getters: {
+        getShowUpdate: (state) => {
+            return state.showUpdate
+        },
+        getVersionDescriptions: (state) => {
+            return state.versionDescriptions
+        },
         getReaderStatus: (state) => {
             return state.readerStatus
         },
@@ -46,6 +54,12 @@ export default createStore({
         }
     },
     mutations: {
+        SET_SHOWUPDATE: (state, payload) => {
+            state.showUpdate = payload
+        },
+        SET_VERSIONDESCRIPTIONS: (state, payload) => {
+            state.versionDescriptions = payload
+        },
         SET_READERSTATUS: (state, payload) => {
             state.readerStatus = payload
         },

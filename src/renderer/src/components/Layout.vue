@@ -4,6 +4,7 @@ import OptionListSub from './OptionListSub.vue'
 import ArticlePage from "./ArticlePage.vue";
 import SearchPage from "./SearchPage.vue";
 import Reader from "./Reader.vue";
+import { useRouter } from 'vue-router'
 
 import { useStore } from 'vuex'
 import { ref, computed, watch, onBeforeMount } from 'vue'
@@ -18,7 +19,7 @@ interface pageStatus {
   name: string
 }
 
-
+const router = useRouter()
 const showModel = ref(false)
 
 const dbManager = new IndexedDBManager()
@@ -33,7 +34,10 @@ const PageStatus = computed(() => store.getters.getPageStatus)
 const SearchContent = computed(() => store.getters.getSearchContent)
 
 const protocol18 = computed(() => store.getters.getProtocol18)
-
+// 使用computed属性来访问getter
+const showUpdate = computed(() => store.getters.getShowUpdate)
+// 使用computed属性来访问getter
+const versionDescriptions = computed(() => store.getters.getVersionDescriptions)
 
 
 // 使用computed属性来访问getter
@@ -45,6 +49,11 @@ const setProtocol18 = (protocol18: boolean) => {
 
 const setPageStatus = (PageStatus: pageStatus[]) => {
   store.commit('SET_PAGESTATUS', PageStatus)
+}
+
+// 使用store.commit来调用mutation
+const setshowUpdate = (showUpdate: boolean) => {
+  store.commit('SET_SHOWUPDATE', showUpdate)
 }
 
 const SearchLayout = ref('')
@@ -278,6 +287,25 @@ const checkprotocol18 = async () => {
   setProtocol18(!protocol18?.protocol18)
 
 }
+
+//取消更新
+const cancelUpdate = () => {
+  message.error('取消更新')
+  setshowUpdate(false)
+}
+
+//开始更新
+const startUpdate = () => {
+  setshowUpdate(false)
+  //先，通知主进程，修改窗口大小，变成更新窗口所需大小
+  window.electron.ipcRenderer.send("UpdateUI");
+  //在切换页面
+  router.push({
+    path: '/update'
+  })
+}
+
+
 onBeforeMount(() => {
   setTimeout(checkprotocol18, 2000)
 })
@@ -310,6 +338,39 @@ onBeforeMount(() => {
     </div>
 
   </div>
+
+  <n-modal v-model:show="showUpdate" :mask-closable="false">
+    <n-card style="width: 600px" title="GlobeStream Update 通知" :bordered="false" size="huge" role="dialog"
+      aria-modal="true">
+      <template #header-extra>
+        <n-badge :value="1" :max="99">
+          <div>
+            <svg t="1710925326942" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg"
+              p-id="8472" width="15" height="15">
+              <path
+                d="M889.828994 749.637494c-1.204099-1.720141-119.205779-165.821603-119.205779-287.435579 0-168.401814-76.202251-254.752898-162.725349-286.919536L607.897867 159.973123c0-52.980346-43.175542-95.983874-95.983874-95.983874S415.930119 107.164791 415.930119 159.973123l0 15.309256c-86.523098 32.166639-162.725349 118.517722-162.725349 286.919536 0 121.269948-118.00168 285.199395-119.205779 286.919536-5.332437 7.568621-7.396607 16.857383-5.332437 25.974131 2.064169 8.944734 7.912649 16.685369 15.997312 20.985721 5.676466 3.096254 107.336805 57.280699 233.423148 84.458928 21.32975 66.397447 73.966068 111.29313 133.654964 111.29313s112.325214-44.895683 133.654964-111.29313c126.086343-27.178229 227.746682-81.018646 233.423148-83.942886 8.256677-4.472367 13.933143-12.040988 16.169326-20.985721C897.225601 766.666891 895.333445 757.206115 889.828994 749.637494zM479.919368 159.973123c0-17.545439 14.449185-31.994625 31.994625-31.994625 17.545439 0 31.994625 14.449185 31.994625 31.994625l0 0.860071c-7.224593-0.516042-14.277171-0.860071-21.32975-0.860071l-21.32975 0c-7.052579 0-14.105157 0.344028-21.32975 0.860071L479.919368 159.973123 479.919368 159.973123zM511.913993 928.016126c-22.361834 0-43.175542-13.417101-57.968755-35.262893 19.26558 2.064169 38.531161 3.268268 57.968755 3.268268s38.875189-1.376113 57.968755-3.268268C555.089535 914.599026 534.275827 928.016126 511.913993 928.016126z"
+                fill="#dbdbdb" p-id="8473"></path>
+            </svg>
+          </div>
+        </n-badge>
+      </template>
+      <div>
+        <p v-for="(item, index) in versionDescriptions" :key="index">{{ item }}</p>
+      </div>
+      <template #footer>
+        <n-space justify="end">
+          <n-button type="error" @click="startUpdate">
+            更新
+          </n-button>
+          <n-button type="primary" @click="cancelUpdate">
+            取消
+          </n-button>
+        </n-space>
+
+      </template>
+    </n-card>
+  </n-modal>
+
   <!-- 18+协议 -->
   <n-modal v-model:show="protocol18" :mask-closable="false">
 
@@ -498,6 +559,8 @@ onBeforeMount(() => {
       </template>
     </n-card>
   </n-modal>
+
+
 </template>
 
 <style scoped>

@@ -1,17 +1,20 @@
 <script setup lang="ts">
-import { useDialog, useMessage } from "naive-ui";
-import { useRouter } from 'vue-router'
+import { useDialog, useMessage, useLoadingBar } from "naive-ui";
+
 import { ref, computed } from 'vue'
 import { useStore } from 'vuex'
+import axios from 'axios';
 
 import * as iconv from 'iconv-lite';
 
+const loadingBar = useLoadingBar()
 const dialog = useDialog();
 const message = useMessage();
-const router = useRouter()
+
 const store = useStore()
 const focusState = ref(false)
 const searchInputValue = ref('')
+const versionB = ref('')
 
 interface pageStatus {
   name: string
@@ -20,6 +23,16 @@ interface pageStatus {
 
 const source = computed(() => store.getters.getSource)
 const PageStatus = computed(() => store.getters.getPageStatus)
+
+// 使用store.commit来调用mutation
+const setshowUpdate = (showUpdate: boolean) => {
+  store.commit('SET_SHOWUPDATE', showUpdate)
+}
+
+// 使用store.commit来调用mutation
+const setversionDescriptions = (versionDescriptions: string[]) => {
+  store.commit('SET_VERSIONDESCRIPTIONS', versionDescriptions)
+}
 
 const setPageStatus = (PageStatus: pageStatus[]) => {
   store.commit('SET_PAGESTATUS', PageStatus)
@@ -47,11 +60,9 @@ const ipcHandleClose = () => {
     }
   });
 };
-const isUpdate = () => {
-  router.push({
-    path: '/update'
-  })
-}
+// const isUpdate = () => {
+
+// }
 
 //输入框的focus状态下css变化
 const Onfocus = () => [
@@ -89,6 +100,51 @@ function encodeGBK(str: string): string {
 
 const OnSetPageStaus = () => {
   setPageStatus([{ name: 'home' }])
+}
+
+// 请求版本号
+window.electron.ipcRenderer.send('version-request-Y')
+// 监听版本号的响应
+window.electron.ipcRenderer.on('version-response-Y', (_event, version) => {
+  console.log(`Application version: ${version}`)
+  versionB.value = version
+})
+
+
+//睡眠
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms))
+}
+
+async function checkForUpdates() {
+  //检查是否有新版本
+  loadingBar.start()
+  await sleep(3000) // 等待3秒
+  axios.get('https://raw.githubusercontent.com/65tiankehan/GlobalTV_profile/main/version.json').then(res => {
+    console.log(res.data.version)
+
+    // 请求版本号
+    window.electron.ipcRenderer.send('version-request')
+
+    // 监听版本号的响应
+    window.electron.ipcRenderer.on('version-response', (_event, version) => {
+      console.log(`Application version: ${version}`)
+      if (res.data.version !== `${version}`) {
+        message.success('有新版本')
+
+        setversionDescriptions(res.data.versionDescription)
+        setshowUpdate(true)
+      } else {
+        message.success('没有新版本')
+      }
+    })
+
+  }).catch((err) => {
+    console.log(err)
+  })
+
+  loadingBar.finish()
+
 }
 
 </script>
@@ -318,8 +374,8 @@ const OnSetPageStaus = () => {
                 <div class="accountPmc_Card_P accountPmc_Card_P_Hideout setup_button_height"
                   style="justify-content: flex-start; height: 250px">
                   <div style="display: flex; align-items: flex-start; justify-content: space-between">
-                    <span>当前版本：v0.0.1</span>
-                    <n-button size="tiny" @click="isUpdate">检查版本</n-button>
+                    <span>当前版本：v{{ versionB }}</span>
+                    <n-button size="tiny" @click="checkForUpdates">检查版本</n-button>
                   </div>
                 </div>
               </div>

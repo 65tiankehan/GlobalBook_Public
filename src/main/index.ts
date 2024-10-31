@@ -2,6 +2,7 @@ import { app, shell, BrowserWindow, ipcMain } from "electron";
 import { join } from "path";
 import { electronApp, optimizer, is } from "@electron-toolkit/utils";
 import icon from "../../resources/icon.png?asset";
+import { autoUpdater } from 'electron-updater'
 
 function createWindow(): void {
   // Create the browser window.
@@ -57,6 +58,74 @@ function createWindow(): void {
     mainWindow.center();
     mainWindow.resizable = false;
   });
+
+
+   //这个得到版本，但不参与任何的版本事件
+   ipcMain.on('version-request-Y', (event) => {
+    event.reply('version-response-Y', app.getVersion())
+  })
+
+  //这个得到版本，会参与任何的版本事件
+  ipcMain.on('version-request', (event) => {
+    event.reply('version-response', app.getVersion())
+  })
+
+  // 监听渲染进程的更新检查请求
+  ipcMain.on('check-for-update', () => {
+    // 开始检查更新
+    autoUpdater.checkForUpdates()
+  })
+
+  //监听渲染进程的更新确认
+  ipcMain.on('check-for-update-yes', () => {
+    // 开始检查更新
+    autoUpdater.quitAndInstall()
+  })
+  // 设置自动更新监听器
+  autoUpdater.on('checking-for-update', () => {
+    console.log('Checking for update...')
+  })
+
+  autoUpdater.on('update-available', (info) => {
+    console.log('Update available:', info.version)
+  })
+
+  autoUpdater.on('update-not-available', (info) => {
+    console.log('Update not available:', info.version)
+  })
+
+  autoUpdater.on('error', (err) => {
+    console.error('Error in auto-updater:', err)
+    //通知渲染线程，更新失败
+    BrowserWindow.getAllWindows().forEach((win) => {
+      win.webContents.send('update-downloaded-err', err)
+    })
+  })
+
+  autoUpdater.on('download-progress', (progressObj) => {
+    let logMessage = 'Download speed: ' + progressObj.bytesPerSecond
+    logMessage = logMessage + ' - Downloaded ' + progressObj.percent + '%'
+    logMessage = logMessage + ' (' + progressObj.transferred + '/' + progressObj.total + ')'
+    console.log(logMessage)
+
+    //通知渲染线程，更新进度
+    BrowserWindow.getAllWindows().forEach((win) => {
+      const percentage = (progressObj.transferred/progressObj.total) *100;
+      win.webContents.send('download-progress-r', percentage.toFixed(2)
+    )
+    })
+  })
+
+
+  autoUpdater.on('update-downloaded', (info) => {
+    console.log('Update downloaded:', info.version)
+    // 通知渲染进程更新已下载
+    BrowserWindow.getAllWindows().forEach((win) => {
+      win.webContents.send('update-downloaded', info)
+    })
+
+  })
+  
 }
 
 // This method will be called when Electron has finished
