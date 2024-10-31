@@ -120,7 +120,7 @@ async function checkForUpdates() {
   //检查是否有新版本
   loadingBar.start()
   await sleep(3000) // 等待3秒
-  axios.get('https://raw.githubusercontent.com/65tiankehan/GlobalTV_profile/main/version.json').then(res => {
+  axios.get('https://raw.githubusercontent.com/65tiankehan/GlobalBook__profile/refs/heads/main/version.json').then(res => {
     console.log(res.data.version)
 
     // 请求版本号
